@@ -30,6 +30,7 @@ io.sockets.on('connection', (socket)=>{
     }
   })
   function updateNickNames(){
+    console.log(users)
     io.sockets.emit('usernames',users)
     //io.sockets.emit('usernames',Object.keys(users))
   }
@@ -45,7 +46,11 @@ io.sockets.on('connection', (socket)=>{
     //socket.broadcast.emit('new message', data);
   })
   socket.on('disconnect', (data)=>{
-    if(!socket.nickname) return;
-    delete users[socket.nickname]
+    if(!socket.nickname) return;    
+    users.some(function (elem, i) {
+        return elem.username === socket.nickname ? users.splice(i, 1) : false;
+    });
+    delete connected[socket.nickname]
+    updateNickNames()
   })
 })
