@@ -1,0 +1,176 @@
+<html>
+	<head>
+		<title>Chat</title>
+		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" type="text/css"/>
+		<style>
+			#chat, #privateChat{
+				height:300px;
+				border: 1px solid #000;
+			}
+			#contentWrap, #userNameWrap{
+				display:none;
+			}
+			#chatWrap, #privateChatWrap{
+				float: left;
+			}
+			.privateChatBox{
+				display:none;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container" id="userNameWrap">
+			<h2>Welcome User <span id="userSocketid"></span></h2>
+		</div>
+		<div class="container" id="nickWrap">			
+			<p id="nickError" class="alert-danger"></p>
+			<div class="col-md-4">
+				<div class="row">
+					<h4>Enter your username</h4>
+				</div>
+			</div>
+			<div class="col-md-8">
+				<div class="row">
+					<form id="setNick">
+						<div class="col-md-8">
+							<input size="20" id="nickname" class="form-control" />
+						</div>	
+						<div class="col-md-4">
+							<input type="submit" class="btn btn-success" />
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+		<div class="container" id="contentWrap">
+			<div class="col-md-3">
+				<h2 class="channel" onclick="general()">General Channel</h2>
+				<h2>Users List</h2>
+				<div id="users"></div>
+			</div>
+			<div class="clearfix visible-xs"></div>
+			<div id="chatWrap" class="col-md-4">
+				<h2>General</h2>
+				<div id="chat" class="row">
+					<ul id="chatMessage" class="list-group"></ul>
+				</div>
+				<div class="clearfix visible-xs"></div>
+				<div class="row">
+					<form id="send-message">
+						<br />
+						<textarea rows="10" id="message" class="form-control" ></textarea>
+						<br/>
+						<input type="submit" value="Send Message" class="btn btn-success">
+					</form>
+				</div>
+			</div>
+			<div class="col-md-1">
+				<div class="clearfix visible-xs"></div>
+			</div>
+			<div id="privateChatWrap" class="col-md-4" style="display:none">
+				<h2 id="socketId"></h2>
+				<div id="privateChat" class="row">
+					<!-- <ul id="privateChatMessage" class="list-group"></ul> -->
+				</div>
+				<div class="clearfix visible-xs"></div>
+				<div class="row">
+					<form id="private-send-message">
+						<br />
+						<textarea rows="10" id="privateMessage" class="form-control" ></textarea>
+						<br/>
+						<input type="hidden" id="privateSocketId" value="" />
+						<input type="submit" value="Send Message" class="btn btn-success" />
+					</form>
+				</div>
+			</div>
+		</div>
+		<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		<script>
+			jQuery(function($){
+				var socket = io.connect();
+				var $nickForm = $('#setNick');
+				var $nickError = $('#nickError');
+				var $nickBox = $('#nickname');
+				var $users = $('#users');
+				var $messageForm = $('#send-message');
+				var $messageBox = $('#message');
+				var $chat = $('#chat');
+				var $chatMessage = $('#chatMessage');
+				var userSocketid1= '';
+				var userSocketName = '';
+				$nickForm.submit(function(e){
+					e.preventDefault();
+					userSocketName = $nickBox.val();
+					socket.emit('new user', $nickBox.val(), function(data){
+						if(data){
+							$('#userSocketid').text(userSocketName+" ("+userSocketid1+")");
+							$('#nickWrap').hide();
+							$('#contentWrap').show();
+							$('#userNameWrap').show();
+						}else{
+							$nickError.html('This username already exist! Try other')
+						}
+					});
+					$nickBox.val('');
+				});
+				socket.on('connect', function(){
+					userSocketid1 = socket.io.engine.id;
+				  	//alert(userSocketid);
+				  	//$('#userSocketid').text(userSocketid);
+				})
+				socket.on('usernames', function(data){
+					var html ='';
+					html += '<ul class="list-group">'
+					for(var i=0; i < data.length; i++){
+						html += '<li class="list-group-item" onclick="privateRoom(\''+data[i].socketId+'\', \''+data[i].username+'\')">'+data[i].username+'</li>';
+						$('#privateChat').append('<ul id="privateChatMessage_'+data[i].username+'" class="list-group privateChatBox"></ul>');
+					}
+					html += '</ul>'
+					$users.html(html);
+				});
+				$messageForm.submit(function(e){
+					e.preventDefault();
+					socket.emit('send message', $messageBox.val());
+					$messageBox.val('');					
+				});
+				$('#private-send-message').submit(function(e){
+					e.preventDefault();
+					socket.emit('private send message',{ message:$('#privateMessage').val(),socketId:$('#privateSocketId').val(), username:$('#socketId').text()});
+					$('#privateMessage').val('');
+				});
+				socket.on('new message', function(data){
+					$('#privateChatWrap').hide();
+					$('#chatWrap').show();
+					$chatMessage.append('<li class="list-group-item"><b>'+data.nick+': </b>'+data.msg+'</li>')
+				});
+				socket.on('new private message', function(data){
+					/*$('#privateChatMessage').append('<li class="list-group-item"><b>'+data.by.username+': </b>'+data.msg+'</li>')*/
+					//alert(JSON.stringify(data))
+					$('#chatWrap').hide();
+					$('#privateChatWrap').css('display','block')
+					$('.privateChatBox').css('display','none');
+					$('#privateChatMessage_'+data.by.username).css('display','block');
+					$('#socketId').text(data.by.username);
+					$('#privateSocketId').val(data.by.socketId);
+					$('#privateChatMessage_'+data.by.username).append('<li class="list-group-item"><b>'+data.by.username+': </b>'+data.msg+'</li>')
+				});
+				socket.on('new own private message', function(data){
+					$('#privateChatMessage_'+data.to.username).append('<li class="list-group-item"><b>'+data.by.username+': </b>'+data.msg+'</li>')
+				});
+			});
+			function general(){
+				$('#privateChatWrap').hide();
+				$('#chatWrap').show();
+			}
+			function privateRoom(socketId, username){
+				$('#privateChatWrap').show();
+				$('#chatWrap').hide();
+				$('#socketId').text(username);
+				$('#privateSocketId').val(socketId);
+				$('.privateChatBox').css('display','none');
+				$('#privateChatMessage_'+username).css('display','block');
+			}
+		</script>
+	</body>
+</html>
