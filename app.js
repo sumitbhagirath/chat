@@ -39,12 +39,24 @@ io.sockets.on('connection', (socket)=>{
     //socket.broadcast.emit('new message', data);
   })
   socket.on('private send message', (data) => {
+    //io.sockets.
     //io.sockets.emit('new private message', {msg:data.message, nick: socket.nickname})
-    console.log(data)
+    //console.log(data)
     io.sockets.connected[socket.id].emit('new own private message', {msg:data.message, by: {username:socket.nickname,socketId:socket.id}, to: {username:data.username,socketId:data.socketId}});
     socket.broadcast.to(data.socketId).emit('new private message', {msg:data.message, by: {username:socket.nickname,socketId:socket.id}, to: {username:data.username, socketId:data.socketId}})
     //socket.broadcast.emit('new message', data);
   })
+  socket.on('attachment', function (msg) {
+      //console.log(msg);
+      io.sockets.emit('attachmentMsg', socket.nickname, msg);
+  });
+  socket.on('privateAttachment', function (data) {
+      console.log(data.message);
+      io.sockets.connected[socket.id].emit('ownPrivateAttachmentMsg', {msg:data.message, by: {username:socket.nickname,socketId:socket.id}, to: {username:data.username,socketId:data.socketId}});
+      socket.broadcast.to(data.socketId).emit('privateAttachmentMsg',{msg:data.message, by: {username:socket.nickname,socketId:socket.id}, to: {username:data.username, socketId:data.socketId}})
+      //io.sockets.emit('privateAttachmentMsg', socket.nickname, msg);
+  });
+
   socket.on('disconnect', (data)=>{
     if(!socket.nickname) return;    
     users.some(function (elem, i) {

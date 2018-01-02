@@ -1,11 +1,14 @@
 <html>
 	<head>
 		<title>Chat</title>
-		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" type="text/css"/>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 		<style>
 			#chat, #privateChat{
 				height:300px;
 				border: 1px solid #000;
+				overflow: overlay;
 			}
 			#contentWrap, #userNameWrap{
 				display:none;
@@ -15,6 +18,55 @@
 			}
 			.privateChatBox{
 				display:none;
+			}
+			button, div.filebutton {
+			 /* -webkit-user-select: none;
+			  -moz-user-select: none;
+			  user-select: none;
+			  display: inline-block;
+			  text-decoration: none;
+			  background: #00b5d6;
+			  border: 1px solid #00a5c3;
+			  -webkit-border-radius: 7px;
+			  -moz-border-radius: 7px;
+			  border-radius: 7px;
+			  color: #fff;
+			  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .6),
+			              inset 0 0 10px #008da7;
+			  font: 600 1.3em/1.7em "helvetica neue", helvetica, arial, sans-serif;
+			  text-align: center;
+			  text-shadow: 0 1px 1px #006679;*/
+			  display: inline-block;
+			  cursor: pointer;
+			  padding: 2px 0 2px 0;
+			  line-height: 1;
+			}
+			button:hover, div.filebutton:hover,
+			button.hover, div.filebutton.hover,
+			button:active,
+			button:focus, {
+			  background: #009cb8;
+			  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .7),
+			             inset 0 0 10px #007287;
+			}
+
+			div.filebutton {
+			  line-height: 24px;
+			  margin: -7px 0;
+			  overflow: hidden;
+			  padding: 2px 0;
+			  position: relative;
+			  width: 150px !important;
+			}
+
+			.filebutton input#imagefile, .filebutton input#privateAttachment {
+			  position: absolute;
+			  top: 0;
+			  left: 0;
+			  width: 100%;
+			  height: 100%;
+			  opacity: 0;
+			  margin: 0;
 			}
 		</style>
 	</head>
@@ -61,6 +113,10 @@
 						<textarea rows="10" id="message" class="form-control" ></textarea>
 						<br/>
 						<input type="submit" value="Send Message" class="btn btn-success">
+						<div class="filebutton">
+							<span class="glyphicon glyphicon-paperclip" id="MessageFile"></span>
+							<input type="file" id="imagefile" accept="file_extension|audio/*|video/*|image/*|media_type">
+						</div>
 					</form>
 				</div>
 			</div>
@@ -78,8 +134,12 @@
 						<br />
 						<textarea rows="10" id="privateMessage" class="form-control" ></textarea>
 						<br/>
-						<input type="hidden" id="privateSocketId" value="" />
+						<input type="hidden" id="privateSocketId" value="" />						
 						<input type="submit" value="Send Message" class="btn btn-success" />
+						<div class="filebutton">
+							<span class="glyphicon glyphicon-paperclip" id="privateMessageFile"></span>
+							<input type="file" id="privateAttachment" accept="file_extension|audio/*|video/*|image/*|media_type">
+						</div>						
 					</form>
 				</div>
 			</div>
@@ -158,7 +218,46 @@
 				socket.on('new own private message', function(data){
 					$('#privateChatMessage_'+data.to.username).append('<li class="list-group-item"><b>'+data.by.username+': </b>'+data.msg+'</li>')
 				});
+				socket.on('attachmentMsg', image);
+				socket.on('privateAttachmentMsg', privateImage);
+
+				socket.on('ownPrivateAttachmentMsg', function(data){
+					$('#privateChatMessage_'+data.to.username).append('<li class="list-group-item"><b>'+data.by.username+': </b><img width="65" height="50" src="' + data.msg + '"/></li>')
+				});
+
+				$('#imagefile').bind('change', function(e){
+			      var data = e.originalEvent.target.files[0];
+			      var reader = new FileReader();
+			      reader.onload = function(evt){
+			        //image('me', evt.target.result);
+			        socket.emit('attachment', evt.target.result);
+			      };
+			      reader.readAsDataURL(data);			      
+			    });
+			    $('#privateAttachment').bind('change', function(e){
+			      var data = e.originalEvent.target.files[0];
+			      var reader = new FileReader();
+			      reader.onload = function(evt){
+			        //image('me', evt.target.result);
+			        socket.emit('privateAttachment', { message:evt.target.result,socketId:$('#privateSocketId').val(), username:$('#socketId').text()});
+			      };
+			      reader.readAsDataURL(data);			      
+			    });
 			});
+			function image (from, base64Image) {
+				$('#privateChatWrap').hide();
+				$('#chatWrap').show();
+				$('#chatMessage').append('<li class="list-group-item"><b>'+from+': </b><img width="65" height="50" src="' + base64Image + '"/></li>')
+			}
+			function privateImage (data) {
+				$('#chatWrap').hide();
+				$('#privateChatWrap').css('display','block')
+				$('.privateChatBox').css('display','none');
+				$('#privateChatMessage_'+data.by.username).css('display','block');
+				$('#socketId').text(data.by.username);
+				$('#privateSocketId').val(data.by.socketId);
+				$('#privateChatMessage_'+data.by.username).append('<li class="list-group-item"><b>'+data.by.username+': </b><img width="65" height="50" src="' + data.msg + '"/></li>')
+			}
 			function general(){
 				$('#privateChatWrap').hide();
 				$('#chatWrap').show();
