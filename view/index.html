@@ -5,7 +5,7 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 		<style>
-			#chat, #privateChat{
+			#chat, #privateChat, #conversation{
 				height:300px;
 				border: 1px solid #000;
 				overflow: overlay;
@@ -13,7 +13,7 @@
 			#contentWrap, #userNameWrap{
 				display:none;
 			}
-			#chatWrap, #privateChatWrap{
+			#chatWrap, #privateChatWrap, #roomWrap{
 				float: left;
 			}
 			.privateChatBox{
@@ -95,13 +95,35 @@
 			</div>
 		</div>
 		<div class="container" id="contentWrap">
-			<div class="col-md-3">
+			<div class="col-md-2">
 				<h2 class="channel" onclick="general()">General Channel</h2>
+				<h2>Rooms</h2>
+				<div id="rooms"></div>
 				<h2>Users List</h2>
 				<div id="users"></div>
 			</div>
 			<div class="clearfix visible-xs"></div>
-			<div id="chatWrap" class="col-md-4">
+			<div id="roomWrap" class="col-md-3">
+				<h2 id="roomName">General</h2>
+				<div id="conversation" class="row"></div>
+				<div class="clearfix visible-xs"></div>
+				<div class="row">
+					<form id="room-send-message">
+						<br />
+						<textarea rows="10" id="roomMessage" class="form-control" ></textarea>
+						<br/>
+						<input type="submit" value="Send Message" class="btn btn-success">
+						<!-- <div class="filebutton">
+							<span class="glyphicon glyphicon-paperclip" id="MessageFile"></span>
+							<input type="file" id="imagefile" accept="file_extension|audio/*|video/*|image/*|media_type">
+						</div> -->
+					</form>
+				</div>
+			</div>
+			<div class="col-md-1">
+				<div class="clearfix visible-xs"></div>
+			</div>
+			<div id="chatWrap" class="col-md-3">
 				<h2>General</h2>
 				<div id="chat" class="row">
 					<ul id="chatMessage" class="list-group"></ul>
@@ -123,7 +145,7 @@
 			<div class="col-md-1">
 				<div class="clearfix visible-xs"></div>
 			</div>
-			<div id="privateChatWrap" class="col-md-4" style="display:none">
+			<div id="privateChatWrap" class="col-md-3" style="display:none">
 				<h2 id="socketId"></h2>
 				<div id="privateChat" class="row">
 					<!-- <ul id="privateChatMessage" class="list-group"></ul> -->
@@ -147,8 +169,8 @@
 		<script src="http://code.jquery.com/jquery-latest.min.js"></script>
 		<script src="/socket.io/socket.io.js"></script>
 		<script>
-			jQuery(function($){
-				var socket = io.connect();
+			var socket = io.connect();
+			jQuery(function($){				
 				var $nickForm = $('#setNick');
 				var $nickError = $('#nickError');
 				var $nickBox = $('#nickname');
@@ -159,6 +181,7 @@
 				var $chatMessage = $('#chatMessage');
 				var userSocketid1= '';
 				var userSocketName = '';
+				var currentRoom = '';
 				$nickForm.submit(function(e){
 					e.preventDefault();
 					userSocketName = $nickBox.val();
@@ -168,6 +191,7 @@
 							$('#nickWrap').hide();
 							$('#contentWrap').show();
 							$('#userNameWrap').show();
+							socket.emit('sendchat', userSocketName);
 						}else{
 							$nickError.html('This username already exist! Try other')
 						}
@@ -243,6 +267,40 @@
 			      };
 			      reader.readAsDataURL(data);			      
 			    });
+
+			    // Rooms
+
+			    socket.on('updaterooms', function(rooms, current_room) {
+					$('#rooms').empty();
+					$.each(rooms, function(key, value) {
+						if(value == current_room){
+							$('#rooms').append('<div>' + value + '</div>');
+						}
+						else {
+							$('#rooms').append('<div><a href="#" onclick="switchRoom(\''+value+'\')">' + value + '</a></div>');
+						}
+						currentRoom = current_room;
+						$('#roomName').text(current_room);
+					});
+				});
+
+				socket.on('updatechat', function (username, data) {
+					$('#conversation').append('<b>'+username + ':</b> ' + data + '<br>');
+				});
+
+				socket.on('new room message', function (data) {
+					$('#conversation').append('<b>'+data.by + ':</b> ' + data.msg + '<br>');
+				});
+
+				socket.on('own new room message', function (data) {
+					$('#conversation').append('<b>'+data.by + ':</b> ' + data.msg + '<br>');
+				});
+
+				$('#room-send-message').submit(function(e){
+					e.preventDefault();
+					socket.emit('room send message',{ message:$('#roomMessage').val(),room:currentRoom, username:$('#socketId').text()});
+					$('#roomMessage').val('');
+				});
 			});
 			function image (from, base64Image) {
 				$('#privateChatWrap').hide();
@@ -269,6 +327,11 @@
 				$('#privateSocketId').val(socketId);
 				$('.privateChatBox').css('display','none');
 				$('#privateChatMessage_'+username).css('display','block');
+			}
+			// Rooms
+			function switchRoom(room){
+				$('#conversation').html('');
+				socket.emit('switchRoom', room);
 			}
 		</script>
 	</body>
